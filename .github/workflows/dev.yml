@@ -1,0 +1,10 @@
+name: Dev Pipeline
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  common:
+    uses: ./.github/workflows/common.yml
+    secrets: inherit

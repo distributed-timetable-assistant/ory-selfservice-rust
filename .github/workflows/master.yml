@@ -1,0 +1,10 @@
+name: Master Pipeline
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  common:
+    uses: ./.github/workflows/common.yml
+    secrets: inherit

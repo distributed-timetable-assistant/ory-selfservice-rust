@@ -1,0 +1,17 @@
+# Ignore target directory from local builds
+target/
+
+# Ignore version control and IDE settings
+.git/
+.github/
+.gitignore
+.vscode/
+.idea/
+
+# Ignore Docker & CI files
+Dockerfile
+.dockerignore
+*.md
+
+# Ignore environment files
+.env

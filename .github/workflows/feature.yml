@@ -1,0 +1,13 @@
+name: Feature Pipeline
+on:
+  push:
+    branches-ignore:
+      - dev
+      - master
+    tags-ignore:
+      - "*"
+
+jobs:
+  common:
+    uses: ./.github/workflows/common.yml
+    secrets: inherit

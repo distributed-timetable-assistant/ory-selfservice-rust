@@ -1,0 +1,66 @@
+name: Release Pipeline
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  common:
+    uses: ./.github/workflows/common.yml
+    secrets: inherit
+
+  build-and-package:
+    runs-on: ubuntu-latest
+    needs: [ common ]
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: "${{ vars.DOCKERHUB_USERNAME }}/${{ vars.ORG_NAME }}.${{ vars.PROJECT_NAME }}"
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [ build-and-package ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: "${{ github.repository_owner }}/${{ vars.GITOPS_PROJECT_NAME }}"
+          token: ${{ secrets.GIT_TOKEN }}
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v3
+      - name: Update image tag via Kustomize
+        env:
+          IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.ORG_NAME }}.${{ vars.PROJECT_NAME }}
+          IMAGE_TAG: ${{ needs.build-and-package.outputs.image-tag }}
+        working-directory: ${{ vars.PROJECT_NAME }}/overlays/stage
+        run: kustomize edit set image "$IMAGE_NAME:$IMAGE_TAG"
+      - name: Git config
+        run: |
+          git config --global user.name "${{ vars.GIT_USER_NAME }}"
+          git config --global user.email "${{ vars.GIT_USER_EMAIL }}"
+      - name: Commit and Push
+        run: |
+          git commit -am "ci(${{ vars.PROJECT_NAME }}): update image with tag=(${{ needs.package.outputs.image-tag }})" || true
+          git push origin
