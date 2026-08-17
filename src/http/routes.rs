@@ -8,12 +8,13 @@ use crate::kratos::models::{
 use crate::shared::state::AppState;
 use axum::response::Redirect;
 use axum::{
-    extract::{Form, Query, State},
+    extract::{Query, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
 };
+use axum_extra::extract::Form;
 use leptos::tachys::view::RenderHtml;
 use std::collections::HashMap;
 
@@ -732,10 +733,6 @@ async fn post_oauth2_consent(
                 },
             )
             .await?;
-        Ok((
-            StatusCode::SEE_OTHER,
-            axum::response::Redirect::to(&reject_res.redirect_to),
-        )
-            .into_response())
+        Ok((StatusCode::SEE_OTHER, Redirect::to(&reject_res.redirect_to)).into_response())
     }
 }

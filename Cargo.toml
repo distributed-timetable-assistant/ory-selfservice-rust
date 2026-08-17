@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "^1", features = ["full"] }
 axum = { version = "0.8", features = ["macros", "original-uri"] }
+axum-extra = { version = "0.12", features = ["form"] }
 leptos = { version = "0.8", features = ["ssr"] }
 reqwest = { version = "0.13", features = ["json"] }
 serde = { version = "^1", features = ["derive"] }
