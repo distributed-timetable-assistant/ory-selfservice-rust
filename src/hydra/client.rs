@@ -134,4 +134,54 @@ impl HydraClient {
 
         Ok(resp.json().await?)
     }
+
+    /// Fetch the Hydra logout request for an RP-Initiated Logout challenge.
+    ///
+    /// Calls `GET /oauth2/auth/requests/logout?logout_challenge={challenge}`.
+    pub async fn get_logout_request(&self, challenge: &str) -> Result<LogoutRequest, AppError> {
+        let url = format!(
+            "{}/oauth2/auth/requests/logout?logout_challenge={}",
+            self.admin_url, challenge
+        );
+        let resp = self.client.get(&url).send().await?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Hydra(format!(
+                "Failed to retrieve logout request: {}",
+                resp.status()
+            )));
+        }
+
+        Ok(resp.json().await?)
+    }
+
+    /// Accept a Hydra RP-Initiated Logout challenge.
+    ///
+    /// Calls `PUT /oauth2/auth/requests/logout/accept?logout_challenge={challenge}`
+    /// with an empty JSON body.  Hydra returns a `CompletedRequest` whose
+    /// `redirect_to` is the URL the browser must visit after the Kratos session
+    /// has been destroyed (typically the RP's post-logout redirect URI).
+    pub async fn accept_logout_request(&self, challenge: &str) -> Result<CompletedRequest, AppError> {
+        let url = format!(
+            "{}/oauth2/auth/requests/logout/accept?logout_challenge={}",
+            self.admin_url, challenge
+        );
+        // Hydra accepts an empty JSON body for the logout accept endpoint.
+        let resp = self
+            .client
+            .put(&url)
+            .json(&serde_json::json!({}))
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Hydra(format!(
+                "Failed to accept logout request: {}",
+                resp.status()
+            )));
+        }
+
+        Ok(resp.json().await?)
+    }
 }
+

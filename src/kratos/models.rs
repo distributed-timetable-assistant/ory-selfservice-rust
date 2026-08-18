@@ -186,3 +186,36 @@ pub struct KratosIdentity {
     pub id: String,
     pub traits: serde_json::Value,
 }
+
+// ─── Error API ────────────────────────────────────────────────────────────────
+
+/// Response from `GET /self-service/errors?id=<id>`
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KratosErrorContainer {
+    pub id: String,
+    pub error: KratosErrorDetail,
+}
+
+/// Inner error detail returned by the Kratos Self-Service Errors API.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KratosErrorDetail {
+    /// HTTP status code (e.g. 410 for "flow expired")
+    pub code: Option<i64>,
+    /// Short machine-readable status (e.g. "Gone", "Forbidden")
+    pub status: Option<String>,
+    /// Human-readable reason phrase
+    pub reason: Option<String>,
+    /// Longer description of what went wrong
+    pub message: Option<String>,
+}
+
+// ─── Logout API ───────────────────────────────────────────────────────────────
+
+/// Response from `GET /self-service/logout/browser`.
+/// The `logout_url` is a complete, CSRF-protected URL that the browser
+/// should be redirected to in order to destroy the active Kratos session.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KratosLogoutFlow {
+    pub logout_url: String,
+    pub logout_token: String,
+}

@@ -1,4 +1,5 @@
 use crate::hydra::models::{AcceptConsentRequest, AcceptLoginRequest, RejectRequest};
+
 use crate::shared::error::AppError;
 use crate::ui::pages::*;
 
@@ -37,6 +38,9 @@ pub fn create_router(state: AppState) -> Router {
             "/oauth2/consent",
             get(get_oauth2_consent).post(post_oauth2_consent),
         )
+        // ── New routes ────────────────────────────────────────────────────────
+        .route("/error", get(get_error))
+        .route("/logout", get(get_logout))
         .with_state(state)
 }
 
@@ -787,5 +791,185 @@ async fn post_oauth2_consent(
             .await?;
 
         Ok((StatusCode::SEE_OTHER, Redirect::to(&reject_res.redirect_to)).into_response())
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /error
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Handles auth-flow error redirects from both Kratos and Hydra.
+///
+/// Query parameters (all optional, checked in priority order):
+/// * `id`                — Kratos Self-Service error ID → fetched via Kratos API.
+/// * `error`             — OAuth2 / OIDC error code (e.g. `access_denied`).
+/// * `error_description` — Human-readable OAuth2 error description.
+///
+/// Falls back to a generic "An unknown error occurred" page when no params
+/// are recognised.
+async fn get_error(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
+    fn render_error_page(title: String, description: String) -> Response {
+        let html = leptos::view! { <ErrorPage title=title description=description /> }.to_html();
+        (
+            StatusCode::OK,
+            [("content-type", "text/html; charset=utf-8")],
+            html,
+        )
+            .into_response()
+    }
+
+    // ── Priority 1: Kratos Self-Service error ID ──────────────────────────────
+    if let Some(id) = params.get("id") {
+        match state.kratos.get_error(id).await {
+            Ok(container) => {
+                let detail = container.error;
+                // Prefer `reason` as the headline, fall back to `status` or a generic title.
+                let title = detail
+                    .status
+                    .clone()
+                    .unwrap_or_else(|| "An Error Occurred".to_string());
+                let description = detail
+                    .reason
+                    .or(detail.message)
+                    .unwrap_or_else(|| "An unexpected error occurred. Please try again.".to_string());
+                return render_error_page(title, description);
+            }
+            Err(err) => {
+                // If we cannot reach Kratos, render a degraded error page rather
+                // than bubbling up an internal 502.
+                tracing::warn!("Failed to fetch Kratos error details for id={}: {:?}", id, err);
+                return render_error_page(
+                    "Error Details Unavailable".to_string(),
+                    "The error details could not be retrieved. Please return to the login page and try again.".to_string(),
+                );
+            }
+        }
+    }
+
+    // ── Priority 2: OAuth2 / OIDC error params ────────────────────────────────
+    if let Some(error_code) = params.get("error") {
+        let description = params
+            .get("error_description")
+            .cloned()
+            .unwrap_or_else(|| format!("An OAuth2 error occurred: {}", error_code));
+        // Convert snake_case code to a readable title (e.g. "access_denied" → "Access Denied")
+        let title = error_code
+            .replace('_', " ")
+            .split_whitespace()
+            .map(|word| {
+                let mut chars = word.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(first) => first.to_uppercase().to_string() + chars.as_str(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        return render_error_page(title, description);
+    }
+
+    // ── Fallback ──────────────────────────────────────────────────────────────
+    render_error_page(
+        "An Unknown Error Occurred".to_string(),
+        "Something went wrong. Please return to the login page and try again.".to_string(),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /logout
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Handles both direct Kratos browser-logout and Hydra RP-Initiated Logout.
+///
+/// **Direct Kratos path** (`GET /logout` with no `logout_challenge`):
+/// 1. Calls `GET /self-service/logout/browser` (forwarding session cookies).
+/// 2. Redirects the browser to the returned Kratos `logout_url`, which carries
+///    a pre-validated CSRF token.  Kratos destroys the session and redirects
+///    the user to `/login` (or `return_to` if configured in Kratos).
+/// 3. If no active session exists, redirects straight to `/login`.
+///
+/// **Hydra RP-Initiated Logout path** (`GET /logout?logout_challenge=<c>`):
+/// 1. Accepts the Hydra logout challenge via the Hydra Admin API.
+///    This yields a `redirect_to` URL (the OIDC client's post-logout redirect URI).
+/// 2. Passes that URL as `return_to` when asking Kratos to create the logout
+///    flow, so Kratos will redirect the browser to the Hydra URI **after**
+///    the session is destroyed.
+/// 3. Returns 303 → Kratos `logout_url`.
+async fn get_logout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    // ── Hydra RP-Initiated Logout ─────────────────────────────────────────────
+    if let Some(challenge) = params.get("logout_challenge") {
+        tracing::info!("Handling Hydra RP-Initiated Logout, challenge={}", challenge);
+
+        // Step 1: Accept the logout challenge.  Hydra returns the OIDC client's
+        // post-logout redirect URI in `redirect_to`.
+        let completed = state.hydra.accept_logout_request(challenge).await?;
+        let post_logout_redirect = completed.redirect_to;
+
+        tracing::debug!(
+            "Hydra logout accepted; post-logout redirect={}",
+            post_logout_redirect
+        );
+
+        // Step 2: Ask Kratos to create the logout flow, passing the Hydra
+        // post-logout URL as `return_to`.  Kratos will embed it in `logout_url`
+        // so the browser ends up at the OIDC client's URI after session destruction.
+        let logout_flow = state
+            .kratos
+            .create_logout_flow(&headers, Some(&post_logout_redirect))
+            .await;
+
+        match logout_flow {
+            Ok(flow) => {
+                tracing::info!("Redirecting to Kratos logout URL: {}", flow.logout_url);
+                return Ok((
+                    StatusCode::SEE_OTHER,
+                    Redirect::to(&flow.logout_url),
+                )
+                    .into_response());
+            }
+            Err(AppError::Unauthorized(_)) => {
+                // No active Kratos session — Hydra challenge was accepted, so we
+                // can send the user directly to the post-logout redirect.
+                tracing::warn!(
+                    "No active Kratos session during Hydra logout; redirecting to post-logout URI"
+                );
+                return Ok((
+                    StatusCode::SEE_OTHER,
+                    Redirect::to(&post_logout_redirect),
+                )
+                    .into_response());
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    // ── Direct Kratos Logout ──────────────────────────────────────────────────
+    tracing::info!("Handling direct Kratos logout");
+    match state.kratos.create_logout_flow(&headers, None).await {
+        Ok(flow) => {
+            tracing::info!("Redirecting to Kratos logout URL: {}", flow.logout_url);
+            Ok((
+                StatusCode::SEE_OTHER,
+                Redirect::to(&flow.logout_url),
+            )
+                .into_response())
+        }
+        Err(AppError::Unauthorized(_)) => {
+            // No active session — nothing to log out; send the user to login.
+            tracing::info!("No active session found; redirecting to /login");
+            Ok((
+                StatusCode::SEE_OTHER,
+                Redirect::to("/login"),
+            )
+                .into_response())
+        }
+        Err(err) => Err(err),
     }
 }

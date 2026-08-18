@@ -79,3 +79,20 @@ pub struct AcceptConsentRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<ConsentRequestSession>,
 }
+
+// ─── Logout API ───────────────────────────────────────────────────────────────
+
+/// Response from `GET /oauth2/auth/requests/logout?logout_challenge=<challenge>`.
+/// Hydra provides this during RP-Initiated Logout so the app can verify and
+/// accept/reject the request before the session is torn down.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LogoutRequest {
+    pub challenge: String,
+    /// The Kratos subject (identity ID) whose session is being logged out.
+    pub subject: Option<String>,
+    /// The Kratos session ID, if Hydra tracked it during the original login.
+    pub sid: Option<String>,
+    /// The original logout request URL (from the RP).
+    pub request_url: Option<String>,
+}
+

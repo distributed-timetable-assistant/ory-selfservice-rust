@@ -248,4 +248,73 @@ impl KratosClient {
 
         Ok(resp.json().await?)
     }
+
+    /// Fetch a Kratos Self-Service error by its `id`.
+    ///
+    /// Calls `GET /self-service/errors?id={id}` (public, no session needed).
+    /// Validates that the id contains only URL-safe characters to prevent
+    /// open-redirect / path-traversal attacks.
+    pub async fn get_error(&self, id: &str) -> Result<KratosErrorContainer, AppError> {
+        // Reuse the same alphanumeric + hyphen allowlist used for flow IDs.
+        if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            return Err(AppError::Kratos("Invalid error ID format".to_string()));
+        }
+
+        let url = format!("{}/self-service/errors?id={}", self.public_url, id);
+        let resp = self.client.get(&url).send().await?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Kratos(format!(
+                "Failed to fetch Kratos error: {}",
+                resp.status()
+            )));
+        }
+
+        Ok(resp.json().await?)
+    }
+
+    /// Initiate a Kratos browser-logout flow for the current session.
+    ///
+    /// Calls `GET /self-service/logout/browser`, forwarding the user's cookies
+    /// so Kratos can identify the active session.
+    ///
+    /// `return_to` is optional.  When provided (e.g. a Hydra post-logout URI),
+    /// it is appended as `?return_to=<url>` so that Kratos will redirect the
+    /// browser to that URL **after** the session has been destroyed.
+    pub async fn create_logout_flow(
+        &self,
+        headers: &HeaderMap,
+        return_to: Option<&str>,
+    ) -> Result<KratosLogoutFlow, AppError> {
+        let mut url = format!("{}/self-service/logout/browser", self.public_url);
+        if let Some(rt) = return_to {
+            // URL-encode the return_to value so it is safe to embed in a query string.
+            let encoded = serde_urlencoded::to_string(&[("return_to", rt)])
+                .unwrap_or_else(|_| format!("return_to={}", rt));
+            url = format!("{}?{}", url, encoded);
+        }
+
+        let resp = self
+            .client
+            .get(&url)
+            .headers(self.copy_forward_headers(headers))
+            .send()
+            .await?;
+
+        if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(AppError::Unauthorized(
+                "No active session — cannot create logout flow".to_string(),
+            ));
+        }
+
+        if !resp.status().is_success() {
+            return Err(AppError::Kratos(format!(
+                "Failed to create logout flow: {}",
+                resp.status()
+            )));
+        }
+
+        Ok(resp.json().await?)
+    }
 }
+

@@ -51,6 +51,18 @@ pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
         <PageLayout title="Sign In" subtitle="Sign in to your account".to_string()>
             <div class="mt-6">
                 <KratosForm ui=flow.ui />
+                // ── Sign-up nudge ────────────────────────────────────────────
+                <div class="mt-6 pt-5 border-t border-slate-800 text-center">
+                    <p class="text-sm text-slate-400">
+                        "Don't have an account? "
+                        <a
+                            href="/registration"
+                            class="font-semibold text-blue-400 hover:text-blue-300 hover:underline transition-colors duration-200"
+                        >
+                            "Sign up"
+                        </a>
+                    </p>
+                </div>
             </div>
         </PageLayout>
     }
@@ -98,6 +110,52 @@ pub fn SettingsPage(flow: SettingsFlow) -> impl IntoView {
                 <div class="mt-6 pt-6 border-t border-slate-800 text-center">
                     <a href="/login" class="text-sm text-slate-400 hover:text-white transition-colors">
                         "Back to Dashboard"
+                    </a>
+                </div>
+            </div>
+        </PageLayout>
+    }
+}
+
+// ─── Error Page ───────────────────────────────────────────────────────────────
+
+/// Renders a self-contained error screen, used by the `GET /error` route.
+///
+/// * `title`       — Short headline shown prominently (e.g. "Flow Expired").
+/// * `description` — Longer explanation shown beneath the title.
+/// * `back_url`    — Href for the "Return" button (defaults to `/login`).
+#[component]
+pub fn ErrorPage(
+    title: String,
+    description: String,
+    #[prop(default = "/login".to_string())] back_url: String,
+) -> impl IntoView {
+    view! {
+        <PageLayout title="Error" subtitle=title.clone()>
+            <div class="mt-6 space-y-6">
+                // ── Error icon ───────────────────────────────────────────────
+                <div class="flex justify-center">
+                    <div class="h-14 w-14 rounded-2xl bg-red-900/40 border border-red-700/50 flex items-center justify-center shadow-lg shadow-red-900/20">
+                        <span class="text-2xl" role="img" aria-label="Error">
+                            "⚠️"
+                        </span>
+                    </div>
+                </div>
+
+                // ── Human-readable description ────────────────────────────────
+                <div class="p-4 bg-red-950/30 border border-red-800/40 rounded-xl">
+                    <p class="text-sm text-slate-300 leading-relaxed text-center">
+                        {description}
+                    </p>
+                </div>
+
+                // ── Return CTA ───────────────────────────────────────────────
+                <div class="pt-2">
+                    <a
+                        href=back_url
+                        class="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg shadow-lg hover:shadow-blue-500/20 transition-all duration-200 text-sm text-center"
+                    >
+                        "Return to Login"
                     </a>
                 </div>
             </div>
