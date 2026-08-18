@@ -649,78 +649,43 @@ async fn get_oauth2_login(
 
 async fn get_oauth2_consent(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Form(form): Form<ConsentForm>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response, AppError> {
-    if form.submit == "accept" {
-        let grant_scope = form.grant_scope.unwrap_or_default();
+    let challenge = params
+        .get("consent_challenge")
+        .ok_or_else(|| AppError::Hydra("Missing consent_challenge parameter".to_string()))?;
 
-        // 1. Fetch the active user session from Kratos to get traits (like email)
-        let kratos_session = match state.kratos.check_session(&headers).await {
-            Ok(session) => session,
-            Err(_) => {
-                return Err(AppError::Unauthorized("No active Kratos session found during consent".to_string()));
-            }
-        };
+    let consent_req = state.hydra.get_consent_request(challenge).await?;
 
-        // 2. Extract the user's email from Kratos identity traits
-        let email = kratos_session
-            .identity
-            .traits
-            .get("email")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-
-        let subject = kratos_session.identity.id;
-
-        // 3. Prepare the session object to pass requested claims (like email and subject) to Hydra
-        let session = Some(crate::hydra::models::ConsentRequestSession {
-            // Include custom claims inside id_token so downstream apps (like oauth2-proxy) can read them
-            id_token: Some(serde_json::json!({
-                "sub": subject,
-                "email": email,
-            })),
-            access_token: None,
-        });
-
-        // 4. Accept the consent request and pass the session containing the claims
+    if consent_req.skip.unwrap_or(false) {
         let accept_res = state
             .hydra
             .accept_consent_request(
-                &form.consent_challenge,
+                challenge,
                 AcceptConsentRequest {
-                    grant_scope,
-                    grant_access_token_audience: None,
+                    grant_scope: consent_req.requested_scope,
+                    grant_access_token_audience: consent_req.requested_access_token_audience,
                     remember: Some(true),
                     remember_for: Some(3600),
-                    session, // Pass the populated session here
+                    session: None,
                 },
             )
             .await?;
-
-        Ok((
+        return Ok((
             StatusCode::SEE_OTHER,
             axum::response::Redirect::to(&accept_res.redirect_to),
         )
-            .into_response())
-    } else {
-        // Handle consent rejection
-        let reject_res = state
-            .hydra
-            .reject_consent_request(
-                &form.consent_challenge,
-                RejectRequest {
-                    error: "consent_denied".to_string(),
-                    error_description: Some("The user denied the consent request.".to_string()),
-                    error_uri: None,
-                    status_code: Some(StatusCode::FORBIDDEN.as_u16() as i64),
-                },
-            )
-            .await?;
-
-        Ok((StatusCode::SEE_OTHER, Redirect::to(&reject_res.redirect_to)).into_response())
+            .into_response());
     }
+
+    let html = leptos::view! { <ConsentPage req=consent_req /> }.to_html();
+
+    Ok((
+        StatusCode::OK,
+        [("content-type", "text/html; charset=utf-8")],
+        html,
+    )
+        .into_response())
 }
 
 #[derive(serde::Deserialize)]
