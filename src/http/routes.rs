@@ -698,10 +698,39 @@ pub struct ConsentForm {
 
 async fn post_oauth2_consent(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Form(form): Form<ConsentForm>,
 ) -> Result<Response, AppError> {
     if form.submit == "accept" {
         let grant_scope = form.grant_scope.unwrap_or_default();
+
+        // Fetch active user session from Kratos
+        let kratos_session = match state.kratos.check_session(&headers).await {
+            Ok(session) => session,
+            Err(_) => {
+                return Err(AppError::Unauthorized("No active Kratos session found during consent".to_string()));
+            }
+        };
+
+        let email = kratos_session
+            .identity
+            .traits
+            .get("email")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+
+        let subject = kratos_session.identity.id;
+
+        // Populate session claims for downstream OIDC clients (like oauth2-proxy)
+        let session = Some(crate::hydra::models::ConsentRequestSession {
+            id_token: Some(serde_json::json!({
+                "sub": subject,
+                "email": email,
+            })),
+            access_token: None,
+        });
+
         let accept_res = state
             .hydra
             .accept_consent_request(
@@ -711,16 +740,18 @@ async fn post_oauth2_consent(
                     grant_access_token_audience: None,
                     remember: Some(true),
                     remember_for: Some(3600),
-                    session: None,
+                    session,
                 },
             )
             .await?;
+
         Ok((
             StatusCode::SEE_OTHER,
-            axum::response::Redirect::to(&accept_res.redirect_to),
+            Redirect::to(&accept_res.redirect_to),
         )
             .into_response())
     } else {
+        // Handle consent rejection
         let reject_res = state
             .hydra
             .reject_consent_request(
@@ -733,6 +764,7 @@ async fn post_oauth2_consent(
                 },
             )
             .await?;
+
         Ok((StatusCode::SEE_OTHER, Redirect::to(&reject_res.redirect_to)).into_response())
     }
 }
