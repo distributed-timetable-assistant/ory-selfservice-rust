@@ -649,6 +649,7 @@ async fn get_oauth2_login(
 
 async fn get_oauth2_consent(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response, AppError> {
     let challenge = params
@@ -658,6 +659,28 @@ async fn get_oauth2_consent(
     let consent_req = state.hydra.get_consent_request(challenge).await?;
 
     if consent_req.skip.unwrap_or(false) {
+        let kratos_session = state.kratos.check_session(&headers).await.map_err(|_| {
+            AppError::Unauthorized("No active Kratos session found during consent skip".to_string())
+        })?;
+
+        let email = kratos_session
+            .identity
+            .traits
+            .get("email")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+
+        let subject = kratos_session.identity.id;
+
+        let session = Some(crate::hydra::models::ConsentRequestSession {
+            id_token: Some(serde_json::json!({
+                "sub": subject,
+                "email": email,
+            })),
+            access_token: None,
+        });
+
         let accept_res = state
             .hydra
             .accept_consent_request(
@@ -667,7 +690,7 @@ async fn get_oauth2_consent(
                     grant_access_token_audience: consent_req.requested_access_token_audience,
                     remember: Some(true),
                     remember_for: Some(3600),
-                    session: None,
+                    session,
                 },
             )
             .await?;
@@ -708,7 +731,9 @@ async fn post_oauth2_consent(
         let kratos_session = match state.kratos.check_session(&headers).await {
             Ok(session) => session,
             Err(_) => {
-                return Err(AppError::Unauthorized("No active Kratos session found during consent".to_string()));
+                return Err(AppError::Unauthorized(
+                    "No active Kratos session found during consent".to_string(),
+                ));
             }
         };
 
@@ -745,11 +770,7 @@ async fn post_oauth2_consent(
             )
             .await?;
 
-        Ok((
-            StatusCode::SEE_OTHER,
-            Redirect::to(&accept_res.redirect_to),
-        )
-            .into_response())
+        Ok((StatusCode::SEE_OTHER, Redirect::to(&accept_res.redirect_to)).into_response())
     } else {
         // Handle consent rejection
         let reject_res = state
