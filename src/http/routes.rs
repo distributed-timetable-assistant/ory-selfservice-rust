@@ -460,7 +460,14 @@ async fn get_registration(
             .into_response());
     }
 
-    init_flow("registration", &state, &headers, &params).await
+    // Preserve existing return_to or derive from login_challenge
+    let mut updated_params = params.clone();
+    if let Some(challenge) = params.get("login_challenge") {
+        let derived_return_to = format!("/oauth2/login?login_challenge={}", challenge);
+        updated_params.insert("return_to".to_string(), derived_return_to);
+    }
+
+    init_flow("registration", &state, &headers, &updated_params).await
 }
 
 async fn post_registration(

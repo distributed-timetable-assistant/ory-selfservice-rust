@@ -18,3 +18,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 http = "^1"
 config = "0.15"
 clap = { version = "^4", features = ["derive"] }
+url = "2"
+

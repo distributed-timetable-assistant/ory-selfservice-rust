@@ -47,6 +47,24 @@ pub fn PageLayout(
 
 #[component]
 pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
+    // Parse query parameters from flow.request_url to preserve them (e.g. login_challenge, return_to)
+    let signup_href = match url::Url::parse(&flow.request_url) {
+        Ok(url) => {
+            let mut params = vec![];
+            for (key, val) in url.query_pairs() {
+                if key == "login_challenge" || key == "return_to" {
+                    params.push((key.into_owned(), val.into_owned()));
+                }
+            }
+            if params.is_empty() {
+                "/registration".to_string()
+            } else {
+                format!("/registration?{}", serde_urlencoded::to_string(&params).unwrap_or_default())
+            }
+        }
+        Err(_) => "/registration".to_string(),
+    };
+
     view! {
         <PageLayout title="Sign In" subtitle="Sign in to your account".to_string()>
             <div class="mt-6">
@@ -56,7 +74,7 @@ pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
                     <p class="text-sm text-slate-400">
                         "Don't have an account? "
                         <a
-                            href="/registration"
+                            href=signup_href
                             class="font-semibold text-blue-400 hover:text-blue-300 hover:underline transition-colors duration-200"
                         >
                             "Sign up"
