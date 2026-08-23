@@ -1,3 +1,4 @@
+use crate::core::domain::error::FlowError;
 use axum::response::{IntoResponse, Response};
 use leptos::prelude::*;
 use thiserror::Error;
@@ -6,6 +7,9 @@ pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Error, Debug)]
 pub enum AppError {
+    #[error("Flow Handler Error: {0}")]
+    Flow(#[from] FlowError),
+
     #[error("Kratos Client Error: {0}")]
     Kratos(String),
 
@@ -29,6 +33,9 @@ pub enum AppError {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    
+    #[error("URL Parse -> Failed: source_error=({0})")]
+    Url(#[source] url::ParseError),
 }
 
 impl IntoResponse for AppError {
