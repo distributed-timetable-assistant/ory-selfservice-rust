@@ -1,0 +1,136 @@
+name: ory-development
+
+networks:
+  ory-net:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ory-postgres
+    restart: unless-stopped
+    networks:
+      - ory-net
+    environment:
+      POSTGRES_USER: ory
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: postgres
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ory -d postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Kratos database
+  # ---------------------------------------------------------------------------
+
+  kratos-migrate:
+    image: oryd/kratos:v26.2.0
+    container_name: ory-kratos-migrate
+    networks:
+      - ory-net
+    environment:
+      DSN: postgres://ory:secretpassword@postgres:5432/kratos?sslmode=disable
+    volumes:
+      - ./config:/etc/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - migrate
+      - sql
+      - -e
+      - --yes
+      - -c
+      - /etc/config/kratos.yml
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Kratos
+  # ---------------------------------------------------------------------------
+
+  kratos:
+    image: oryd/kratos:v26.2.0
+    container_name: ory-kratos
+    restart: unless-stopped
+    networks:
+      - ory-net
+    environment:
+      DSN: postgres://ory:secretpassword@postgres:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
+      LOG_LEVEL: debug
+    volumes:
+      - ./config:/etc/config:ro
+    ports:
+      - "4433:4433"
+      - "4434:4434"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kratos-migrate:
+        condition: service_completed_successfully
+    command:
+      - serve
+      - -c
+      - /etc/config/kratos.yml
+      - --watch-courier
+      - --dev
+
+  # ---------------------------------------------------------------------------
+  # Hydra database
+  # ---------------------------------------------------------------------------
+
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0
+    container_name: ory-hydra-migrate
+    networks:
+      - ory-net
+    environment:
+      DSN: postgres://ory:secretpassword@postgres:5432/hydra?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - migrate
+      - sql
+      - -e
+      - --yes
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Hydra
+  # ---------------------------------------------------------------------------
+
+  hydra:
+    image: oryd/hydra:v26.2.0
+    container_name: ory-hydra
+    restart: unless-stopped
+    networks:
+      - ory-net
+    environment:
+      DSN: postgres://ory:secretpassword@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+
+      LOG_LEVEL: debug
+
+      URLS_SELF_ISSUER: http://127.0.0.1:4444/
+      URLS_CONSENT: http://127.0.0.1:8080/oauth2/consent
+      URLS_LOGIN: http://127.0.0.1:8080/oauth2/login
+
+      SECRETS_SYSTEM: YouReallyNeedToChangeThisSecretToSomethingLongAndSecure
+
+    ports:
+      - "4444:4444"
+      - "4445:4445"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hydra-migrate:
+        condition: service_completed_successfully
+    command:
+      - serve
+      - all
+      - --dev

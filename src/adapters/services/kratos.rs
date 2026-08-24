@@ -8,8 +8,8 @@ use axum::body::Bytes;
 use http::header::{ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE, USER_AGENT};
 use http::{HeaderMap, HeaderName, StatusCode};
 use reqwest::Response;
-use std::collections::HashMap;
 use reqwest_middleware::ClientWithMiddleware;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct KratosService {
@@ -28,21 +28,21 @@ impl KratosService {
         target_path: Option<&str>,
         params: &HashMap<String, String>,
     ) -> String {
-        // TODO: Use Url
-        let target_url = format!(
+        let base = format!(
             "{}/self-service/{}",
             self.public_url,
-            flow_type.to_string().to_lowercase(),
+            flow_type.to_string().to_lowercase()
         );
+        let path = target_path.map(|p| format!("/{p}")).unwrap_or_default();
         if !params.is_empty() {
             return format!(
                 "{}{}?{}",
-                target_url,
-                target_path.map(|p| format!("/{p}")).unwrap_or_default(),
+                base,
+                path,
                 serde_urlencoded::to_string(params).unwrap_or_default()
             );
         }
-        target_url
+        format!("{}{}", base, path)
     }
 
     fn validate_flow_id(&self, flow_id: &str) -> IdentityResult<()> {
