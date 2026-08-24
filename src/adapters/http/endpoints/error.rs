@@ -1,14 +1,14 @@
+use crate::core::ports::flow::FetchUiFlowHandler;
+use crate::shared::error::AppError;
 use crate::shared::state::AppState;
+use crate::ui::pages::ErrorPage;
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Response};
-use http::{HeaderMap, HeaderValue, StatusCode};
+use http::header::CONTENT_TYPE;
+use http::{HeaderMap, HeaderValue};
 use leptos::prelude::RenderHtml;
 use std::collections::HashMap;
 use std::sync::Arc;
-use http::header::CONTENT_TYPE;
-use crate::core::ports::flow::FetchUiFlowHandler;
-use crate::shared::error::AppError;
-use crate::ui::pages::ErrorPage;
 
 pub async fn fetch_ui(
     State(state): State<Arc<AppState>>,
@@ -27,7 +27,10 @@ pub async fn fetch_ui(
         resp.status_code,
         resp.headers,
         resp.ui_node
-            .map(|ui_node| leptos::view! { <ErrorPage title=ui_node.title description=ui_node.description /> }.to_html())
+            .map(|ui_node| {
+                leptos::view! { <ErrorPage title=ui_node.title description=ui_node.description /> }
+                    .to_html()
+            })
             .unwrap_or_default(),
     )
         .into_response())

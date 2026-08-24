@@ -5,22 +5,17 @@ use crate::core::domain::oidc_domains::{
     RejectRequest,
 };
 use crate::core::ports::services::oidc::OidcService;
-use crate::shared::error::AppError;
 use async_trait::async_trait;
+use reqwest_middleware::ClientWithMiddleware;
 
 #[derive(Clone)]
 pub struct HydraService {
-    pub client: reqwest::Client,
+    pub client: ClientWithMiddleware,
     admin_url: String,
 }
 
 impl HydraService {
-    pub fn new(admin_url: String) -> Self {
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("Failed to build reqwest client for Hydra");
-
+    pub fn new(admin_url: String, client: ClientWithMiddleware) -> Self {
         Self { client, admin_url }
     }
 
@@ -29,7 +24,7 @@ impl HydraService {
         &self,
         challenge: &str,
         body: RejectRequest,
-    ) -> Result<CompletedRequest, AppError> {
+    ) -> OidcResult<CompletedRequest> {
         let url = format!(
             "{}/oauth2/auth/requests/login/reject?login_challenge={}",
             self.admin_url, challenge
@@ -37,7 +32,7 @@ impl HydraService {
         let resp = self.client.put(&url).json(&body).send().await?;
 
         if !resp.status().is_success() {
-            return Err(AppError::Hydra(format!(
+            return Err(OidcError::RetrieveRequest(format!(
                 "Failed to reject login request: {}",
                 resp.status()
             )));
@@ -50,7 +45,7 @@ impl HydraService {
     /// Fetch the Hydra logout request for an RP-Initiated Logout challenge.
     ///
     /// Calls `GET /oauth2/auth/requests/logout?logout_challenge={challenge}`.
-    pub async fn get_logout_request(&self, challenge: &str) -> Result<LogoutRequest, AppError> {
+    pub async fn get_logout_request(&self, challenge: &str) -> OidcResult<LogoutRequest> {
         let url = format!(
             "{}/oauth2/auth/requests/logout?logout_challenge={}",
             self.admin_url, challenge
@@ -58,7 +53,7 @@ impl HydraService {
         let resp = self.client.get(&url).send().await?;
 
         if !resp.status().is_success() {
-            return Err(AppError::Hydra(format!(
+            return Err(OidcError::RetrieveRequest(format!(
                 "Failed to retrieve logout request: {}",
                 resp.status()
             )));
@@ -157,15 +152,12 @@ impl OidcService for HydraService {
         Ok(resp.json().await?)
     }
 
-    async fn accept_logout_request(
-        &self,
-        challenge: &str,
-    ) -> OidcResult<CompletedRequest> {
+    async fn accept_logout_request(&self, challenge: &str) -> OidcResult<CompletedRequest> {
         let url = format!(
             "{}/oauth2/auth/requests/logout/accept?logout_challenge={}",
             self.admin_url, challenge
         );
-        
+
         let resp = self
             .client
             .put(&url)

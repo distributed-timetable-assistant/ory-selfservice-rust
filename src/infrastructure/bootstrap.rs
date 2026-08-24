@@ -1,4 +1,3 @@
-use crate::adapters::http::middleware::trace_request_context;
 use crate::adapters::http::routes::router;
 use crate::adapters::services::hydra::HydraService;
 use crate::adapters::services::kratos::KratosService;
@@ -8,6 +7,7 @@ use crate::core::ports::utils::url_rewrite::UrlRewriter;
 use crate::core::usecases::flow_handlers::consent::ConsentFlowHandler;
 use crate::core::usecases::flow_handlers::error::ErrorFlowHandler;
 use crate::core::usecases::flow_handlers::login::LoginFlowHandler;
+use crate::core::usecases::flow_handlers::logout::LogoutFlowHandler;
 use crate::core::usecases::flow_handlers::recovery::RecoveryFlowHandler;
 use crate::core::usecases::flow_handlers::registration::RegistrationFlowHandler;
 use crate::core::usecases::flow_handlers::settings::SettingsFlowHandler;
@@ -18,12 +18,13 @@ use crate::infrastructure::{config_loader, telemetry};
 use crate::shared::config::Config;
 use crate::shared::error::{AppError, AppResult};
 use crate::shared::state::{AppState, FlowHandlers};
-use axum::middleware;
 use clap::Parser;
+use reqwest_middleware::ClientBuilder;
 use std::sync::Arc;
+use reqwest_tracing::TracingMiddleware;
+use tower_http::trace::TraceLayer;
 use tracing::info;
 use url::Url;
-use crate::core::usecases::flow_handlers::logout::LogoutFlowHandler;
 
 pub async fn start() -> AppResult<()> {
     telemetry::init();
@@ -34,10 +35,12 @@ pub async fn start() -> AppResult<()> {
     let config: Config = config_loader::load(&conf_path);
 
     // Base reqwest client that doesn't follow redirects automatically
-    let client = reqwest::Client::builder()
+    let raw_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-
+    let client = ClientBuilder::new(raw_client)
+        .with(TracingMiddleware::default())
+        .build();
     // Initialize Kratos client
     let kratos_service = Arc::new(KratosService::new(
         config.kratos_public_url.clone(),
@@ -45,7 +48,10 @@ pub async fn start() -> AppResult<()> {
     ));
 
     // Initialize Hydra client
-    let hydra_service = Arc::new(HydraService::new(config.hydra_admin_url.clone()));
+    let hydra_service = Arc::new(HydraService::new(
+        config.hydra_admin_url.clone(),
+        client,
+    ));
 
     // Initialize Url Rewriter Util
     let app_url: Url = config
@@ -70,7 +76,7 @@ pub async fn start() -> AppResult<()> {
     // Create router with telemetry middleware
     let app = router()
         .with_state(Arc::new(state))
-        .layer(middleware::from_fn(trace_request_context));
+        .layer(TraceLayer::new_for_http());
 
     // Bind listener
     let listener = tokio::net::TcpListener::bind(&config.listen_addr).await?;

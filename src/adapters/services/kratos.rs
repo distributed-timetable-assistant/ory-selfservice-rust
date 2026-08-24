@@ -9,15 +9,16 @@ use http::header::{ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE, USER_AGENT};
 use http::{HeaderMap, HeaderName, StatusCode};
 use reqwest::Response;
 use std::collections::HashMap;
+use reqwest_middleware::ClientWithMiddleware;
 
 #[derive(Clone)]
 pub struct KratosService {
-    pub client: reqwest::Client,
+    pub client: ClientWithMiddleware,
     public_url: String,
 }
 
 impl KratosService {
-    pub fn new(public_url: String, client: reqwest::Client) -> Self {
+    pub fn new(public_url: String, client: ClientWithMiddleware) -> Self {
         Self { client, public_url }
     }
 

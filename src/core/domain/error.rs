@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum FlowError {
     #[error("Http Client Call -> FAILED: Internal error. from_error=({0})")]
-    HttpClient(#[from] reqwest::Error),
+    HttpClient(#[from] reqwest_middleware::Error),
     #[error("Identity Service -> FAILED: from_error=({0})")]
     Identity(#[from] IdentityError),
     #[error("OIDC Service -> FAILED: from_error=({0})")]
@@ -26,6 +26,8 @@ pub enum IdentityError {
     IncorrectFlowIdFormat(String),
     #[error("Error ID Check -> FAILED: error_id=({0})")]
     IncorrectErrorIdFormat(String),
+    #[error("Http Middleware Call -> FAILED: Internal error. source_error=({0})")]
+    HttpMiddleware(#[from] reqwest_middleware::Error),
     #[error("Http Client Call -> FAILED: Internal error. source_error=({0})")]
     HttpClient(#[from] reqwest::Error),
     #[error("Fetch Identity Flow -> FAILED: {0}")]
@@ -49,6 +51,8 @@ pub type IdentityResult<T> = Result<T, IdentityError>;
 pub enum OidcError {
     #[error("Http Client Call -> FAILED: Internal error. source_error=({0})")]
     HttpClient(#[from] reqwest::Error),
+    #[error("Http Client Call -> FAILED: Internal error. source_error=({0})")]
+    HttpMiddleware(#[from] reqwest_middleware::Error),
     #[error("Retrieve OIDC Request -> FAILED: {0}")]
     RetrieveRequest(String),
     #[error("Accept OIDC Request -> FAILED: {0}")]
