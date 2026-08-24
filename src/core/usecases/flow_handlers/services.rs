@@ -86,7 +86,7 @@ pub async fn handle_identity_submit_flow<U: UiNodeVariant>(
     if !(status.is_success() || status == StatusCode::BAD_REQUEST || status.is_redirection()) {
         let body_text: String = resp.text().await?;
         return Err(IdentityError::PostFlow(format!(
-            "Form submission failed. flow=({}), status=({}), , body=({})",
+            "Form submission failed. flow=({}), status=({}), body=({})",
             &U::FLOW_TYPE,
             status,
             body_text

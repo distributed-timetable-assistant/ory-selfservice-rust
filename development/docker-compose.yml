@@ -113,15 +113,11 @@ services:
       - ory-net
     environment:
       DSN: postgres://ory:secretpassword@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
-
       LOG_LEVEL: debug
-
-      URLS_SELF_ISSUER: http://127.0.0.1:4444/
+      URLS_SELF_ISSUER: http://hydra:4444/
       URLS_CONSENT: http://127.0.0.1:8080/oauth2/consent
       URLS_LOGIN: http://127.0.0.1:8080/oauth2/login
-
       SECRETS_SYSTEM: YouReallyNeedToChangeThisSecretToSomethingLongAndSecure
-
     ports:
       - "4444:4444"
       - "4445:4445"
@@ -134,3 +130,32 @@ services:
       - serve
       - all
       - --dev
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
+    container_name: ory-oauth2-proxy
+    restart: unless-stopped
+    networks:
+      - ory-net
+    depends_on:
+      - hydra
+    ports:
+      - "8081:8081"
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://hydra:4444/
+      OAUTH2_PROXY_CLIENT_ID: test-client
+      OAUTH2_PROXY_CLIENT_SECRET: test-client-secret
+      OAUTH2_PROXY_REDIRECT_URL: http://127.0.0.1:8081/oauth2/callback
+      OAUTH2_PROXY_UPSTREAMS: http://whoami:80
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:8081
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_COOKIE_SECRET: "01234567890123456789012345678901"
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_SCOPE: "openid profile email"
+
+  whoami:
+    image: traefik/whoami:v1.11
+    container_name: ory-whoami
+    networks:
+      - ory-net

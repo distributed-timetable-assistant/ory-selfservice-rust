@@ -92,8 +92,8 @@ where
             url_rewriter,
         )
         .await?;
-        if let Some(flow) = &mut resp.ui_node {
-            flow.ui.action = self.url_rewriter.rewrite(&flow.ui.action);
+        if let Some(ui_node) = &mut resp.ui_node {
+            ui_node.ui.action = self.url_rewriter.rewrite(&ui_node.ui.action);
         }
         Ok(resp)
     }
