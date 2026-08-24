@@ -17,7 +17,7 @@ pub async fn handle_identity_fetch_flow<F: UiNodeVariant>(
 ) -> IdentityResult<UiNodeResponse<F>> {
     let resp = identity_service.fetch_flow::<F>(headers, params).await?;
     let status = resp.status();
-    if !status.is_success() || params.get("flow").is_some() && status.is_redirection() {
+    if !status.is_success() && params.get("flow").is_some() && !status.is_redirection() {
         return Err(IdentityError::RetrieveRequest(format!(
             "Failed to get {} flow: {}",
             &F::FLOW_TYPE,
