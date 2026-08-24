@@ -33,7 +33,7 @@ pub async fn handle_identity_fetch_flow<F: UiNodeVariant>(
         .collect();
 
     if status.is_redirection() {
-        headers
+        resp.headers()
             .get_all(LOCATION)
             .into_iter()
             .fold(&mut resp_headers, |headers, value| {
@@ -101,7 +101,7 @@ pub async fn handle_identity_submit_flow<U: UiNodeVariant>(
         .collect();
 
     if status.is_redirection() {
-        headers
+        resp.headers()
             .get_all(LOCATION)
             .into_iter()
             .fold(&mut resp_headers, |headers, value| {
