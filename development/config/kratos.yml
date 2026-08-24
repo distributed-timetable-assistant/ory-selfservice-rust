@@ -21,7 +21,7 @@ serve:
     base_url: http://127.0.0.1:4434/
 
 oauth2_provider:
-  url: http://127.0.0.1:4445
+  url: http://hydra:4445
 
 selfservice:
   default_browser_return_url: http://127.0.0.1:8080/

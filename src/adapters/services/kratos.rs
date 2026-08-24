@@ -98,14 +98,18 @@ impl IdentityService for KratosService {
         headers: &HeaderMap,
         params: &HashMap<String, String>,
     ) -> IdentityResult<Response> {
-        let target_path = params
+        let mut target_path = "browser";
+        let req_params: HashMap<String, String> = params
             .get("flow")
-            .map(|flow_id| self.validate_flow_id(flow_id))
+            .map(|flow_id| -> Result<(String, String), IdentityError> {
+                self.validate_flow_id(flow_id)?;
+                target_path = "flows";
+                Ok(("id".to_string(), flow_id.clone()))
+            })
             .transpose()?
-            .map(|_| "flow")
-            .unwrap_or("browser");
-
-        let url = self.target_to_identity(&F::FLOW_TYPE, Some(target_path), params);
+            .into_iter()
+            .collect();
+        let url = self.target_to_identity(&F::FLOW_TYPE, Some(target_path), &req_params);
         let resp = self
             .client
             .get(&url)
