@@ -1,5 +1,5 @@
-use crate::hydra::models::ConsentRequest;
-use crate::kratos::models::*;
+use crate::core::domain::flow::ConsentUiNode;
+use crate::core::domain::flow::{LoginUiNode, RecoveryUiNode, RegistrationUiNode, SettingsUiNode, VerificationUiNode};
 use crate::ui::components::KratosForm;
 use leptos::prelude::*;
 
@@ -46,7 +46,7 @@ pub fn PageLayout(
 }
 
 #[component]
-pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
+pub fn LoginPage(flow: LoginUiNode) -> impl IntoView {
     // Parse query parameters from flow.request_url to preserve them (e.g. login_challenge, return_to)
     let signup_href = match url::Url::parse(&flow.request_url) {
         Ok(url) => {
@@ -59,7 +59,10 @@ pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
             if params.is_empty() {
                 "/registration".to_string()
             } else {
-                format!("/registration?{}", serde_urlencoded::to_string(&params).unwrap_or_default())
+                format!(
+                    "/registration?{}",
+                    serde_urlencoded::to_string(&params).unwrap_or_default()
+                )
             }
         }
         Err(_) => "/registration".to_string(),
@@ -87,7 +90,7 @@ pub fn LoginPage(flow: LoginFlow) -> impl IntoView {
 }
 
 #[component]
-pub fn RegistrationPage(flow: RegistrationFlow) -> impl IntoView {
+pub fn RegistrationPage(flow: RegistrationUiNode) -> impl IntoView {
     view! {
         <PageLayout title="Create Account" subtitle="Get started with a new account".to_string()>
             <div class="mt-6">
@@ -98,7 +101,7 @@ pub fn RegistrationPage(flow: RegistrationFlow) -> impl IntoView {
 }
 
 #[component]
-pub fn RecoveryPage(flow: RecoveryFlow) -> impl IntoView {
+pub fn RecoveryPage(flow: RecoveryUiNode) -> impl IntoView {
     view! {
         <PageLayout title="Recover Account" subtitle="Enter credentials to recover your account".to_string()>
             <div class="mt-6">
@@ -109,7 +112,7 @@ pub fn RecoveryPage(flow: RecoveryFlow) -> impl IntoView {
 }
 
 #[component]
-pub fn VerificationPage(flow: VerificationFlow) -> impl IntoView {
+pub fn VerificationPage(flow: VerificationUiNode) -> impl IntoView {
     view! {
         <PageLayout title="Verify Account" subtitle="Verify your email or account status".to_string()>
             <div class="mt-6">
@@ -120,7 +123,7 @@ pub fn VerificationPage(flow: VerificationFlow) -> impl IntoView {
 }
 
 #[component]
-pub fn SettingsPage(flow: SettingsFlow) -> impl IntoView {
+pub fn SettingsPage(flow: SettingsUiNode) -> impl IntoView {
     view! {
         <PageLayout title="Account Settings" subtitle="Manage password, profile, and security".to_string()>
             <div class="mt-6">
@@ -182,7 +185,7 @@ pub fn ErrorPage(
 }
 
 #[component]
-pub fn ConsentPage(req: ConsentRequest) -> impl IntoView {
+pub fn ConsentPage(req: ConsentUiNode) -> impl IntoView {
     let client_name = req
         .client
         .client_name

@@ -49,17 +49,6 @@ pub struct CompletedRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ConsentRequest {
-    pub challenge: String,
-    pub subject: Option<String>,
-    pub skip: Option<bool>,
-    pub client: OAuth2Client,
-    pub requested_scope: Vec<String>,
-    pub requested_access_token_audience: Option<Vec<String>>,
-    pub login_session_id: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsentRequestSession {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub access_token: Option<serde_json::Value>,
@@ -80,11 +69,6 @@ pub struct AcceptConsentRequest {
     pub session: Option<ConsentRequestSession>,
 }
 
-// ─── Logout API ───────────────────────────────────────────────────────────────
-
-/// Response from `GET /oauth2/auth/requests/logout?logout_challenge=<challenge>`.
-/// Hydra provides this during RP-Initiated Logout so the app can verify and
-/// accept/reject the request before the session is torn down.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogoutRequest {
     pub challenge: String,

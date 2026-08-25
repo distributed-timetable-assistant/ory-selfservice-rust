@@ -1,4 +1,4 @@
-use crate::kratos::models::*;
+use crate::core::domain::flow::{UiContainer, UiNode, UiNodeAttributes, UiNodeInputAttributes, UiNodeMeta, UiText};
 use leptos::prelude::*;
 
 #[component]

@@ -1,4 +1,11 @@
+# ORY_UI__LISTEN_ADDR="0.0.0.0:8080"
 listen_addr: 0.0.0.0:8080
+
+# ORY_UI__PUBLIC_BASE_URL="https://identity.outi.ir" --> App Address
 public_base_url: http://127.0.0.1:8080
+
+# ORY_UI__KRATOS_PUBLIC_URL="http://kratos:4433" --> Kratos svc Address (:public port)
 kratos_public_url: http://127.0.0.1:4433
+
+# ORY_UI__HYDRA_ADMIN_URL="http://hydra:4445" --> Hydra svc Address (:admin port)
 hydra_admin_url: http://127.0.0.1:4445

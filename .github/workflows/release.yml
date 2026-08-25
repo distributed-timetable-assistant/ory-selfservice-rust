@@ -62,5 +62,5 @@ jobs:
           git config --global user.email "${{ vars.GIT_USER_EMAIL }}"
       - name: Commit and Push
         run: |
-          git commit -am "ci(${{ vars.PROJECT_NAME }}): update image with tag=(${{ needs.package.outputs.image-tag }})" || true
+          git commit -am "ci(${{ vars.PROJECT_NAME }}): update image with tag=(${{ needs.build-and-package.outputs.image-tag }})" || true
           git push origin
