@@ -33,7 +33,7 @@ where
         _headers: &HeaderMap,
         params: &HashMap<String, String>,
     ) -> FlowResult<UiNodeResponse<ErrorUiNode>> {
-        // TODO: Shit Code
+        // TODO: Issue #3
         let identity_service = self.identity_service.clone();
         // ── Priority 1: Kratos Self-Service error ID ──────────────────────────────
         if let Some(id) = params.get("id") {

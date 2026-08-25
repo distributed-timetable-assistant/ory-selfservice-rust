@@ -19,7 +19,7 @@ impl HydraService {
         Self { client, admin_url }
     }
 
-    // TODO: Use if it's needed
+    // TODO: Issue #2
     pub async fn reject_login_request(
         &self,
         challenge: &str,
@@ -41,7 +41,6 @@ impl HydraService {
         Ok(resp.json().await?)
     }
 
-    // TODO: Use if it's needed
     /// Fetch the Hydra logout request for an RP-Initiated Logout challenge.
     ///
     /// Calls `GET /oauth2/auth/requests/logout?logout_challenge={challenge}`.

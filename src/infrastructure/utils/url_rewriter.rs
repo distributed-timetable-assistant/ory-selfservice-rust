@@ -1,5 +1,4 @@
 use http::HeaderValue;
-// TODO: Refactor with tests
 use url::Url;
 use crate::core::ports::utils::url_rewrite::UrlRewriter;
 
