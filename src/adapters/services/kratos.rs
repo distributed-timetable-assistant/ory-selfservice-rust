@@ -108,6 +108,7 @@ impl IdentityService for KratosService {
             })
             .transpose()?
             .into_iter()
+            .chain(params.clone())
             .collect();
         let url = self.target_to_identity(&F::FLOW_TYPE, Some(target_path), &req_params);
         let resp = self
