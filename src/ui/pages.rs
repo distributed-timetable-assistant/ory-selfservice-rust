@@ -11,7 +11,7 @@ pub fn PageLayout(
 ) -> impl IntoView {
     view! {
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" class="h-full w-full">
             <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -23,7 +23,7 @@ pub fn PageLayout(
                     }"
                 </style>
             </head>
-            <body class="text-slate-100 min-height-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <body class="text-slate-100 min-height-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-fixed">
                 <div class="max-w-md w-full space-y-8 bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl shadow-2xl">
                     <div class="text-center">
                         <div class="mx-auto h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">

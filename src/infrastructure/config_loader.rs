@@ -42,11 +42,12 @@ fn get_config_paths(conf_path: &Option<String>) -> Vec<(PathBuf, bool)> {
         .inspect_err(|error| error!("Get Current Working Directory -> FAILED. error=({})", error))
         .unwrap();
 
+    let app_name = env!("CARGO_PKG_NAME");
     match conf_path {
         None => vec![
             (cwd.join("config.yml"), false),
             (cwd.join(format!("config-{}.yml", env)), false),
-            (cwd.join("/etc/flow-rclone/config.yml"), false),
+            (cwd.join(format!("/etc/{}/config.yml", app_name)), false),
         ],
         Some(path) => vec![(cwd.join(path), true)],
     }
