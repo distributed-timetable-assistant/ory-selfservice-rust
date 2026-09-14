@@ -24,3 +24,4 @@ tower-http = { version = "0.7", features = ["trace"] }
 config = "0.15"
 clap = { version = "^4", features = ["derive"] }
 url = "^2"
+mimalloc = "0.1"

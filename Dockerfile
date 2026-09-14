@@ -1,9 +1,9 @@
 # Chef (Prepare caching environment)
-FROM lukemathwalker/cargo-chef:latest-rust-1.97-alpine AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.98-alpine AS chef
 WORKDIR /app
 
 # Planner (Analyze dependencies)
-FROM lukemathwalker/cargo-chef:latest-rust-1.97-alpine AS planner
+FROM lukemathwalker/cargo-chef:latest-rust-1.98-alpine AS planner
 WORKDIR /app
 COPY . .
 # Compute a recipe file containing all dependencies
@@ -16,7 +16,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
 # Now copy the actual source code
 COPY . .
-# Build the application statically
+# Build the application statically with musl and mimalloc
 RUN cargo build --release --target x86_64-unknown-linux-musl
 # Create an unprivileged user for Kubernetes security
 RUN adduser -D -g '' -h /nonexistent -s /sbin/nologin -H -u 10001 appuser

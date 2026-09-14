@@ -20,7 +20,7 @@ where
             Config::builder().add_source(File::from_str(DEFAULT_YAML, FileFormat::Yaml)),
             |builder, file| builder.add_source(file),
         )
-        .add_source(Environment::with_prefix("ORY_UI").separator("__"))
+        .add_source(Environment::with_prefix("APP").separator("__"))
         .build()
         .inspect_err(|error| error!("Config Load -> FAILED: error=({})", error))
         .unwrap()
